@@ -11,7 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 
-import java.awt.print.Pageable;
+import org.springframework.data.domain.Pageable;
 import java.time.LocalDateTime;
 
 @Service
@@ -24,7 +24,7 @@ public class ProductService {
     @Transactional
     public Product createProduct(Product product, String userEmail) {
 
-        if (productRepository.existsById(product.getId())) {
+        if (productRepository.existsBySku(product.getSku())) {
             throw new BusinessRuleException("Product with id " + product.getId() + " already exists");
         }
         Product newProduct = productRepository.save(product);;
@@ -41,6 +41,7 @@ public class ProductService {
 
         return newProduct;
     }
+
     public Page<Product> searchProduct(String name, Pageable pageable) {
         if(name == null || name.isBlank()){
             return productRepository.findAll((org.springframework.data.domain.Pageable) pageable);
