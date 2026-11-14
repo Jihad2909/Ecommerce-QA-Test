@@ -4,7 +4,7 @@ export default function Navbar({ onLogout }) {
       <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
         <div className="flex items-center gap-3">
           <span className="bg-blue-600 text-xs font-bold uppercase px-2.5 py-1 rounded">
-            ING 5 GLSI
+            QA-Test
           </span>
           <h1 className="text-xl font-semibold tracking-tight">
             Gestion Commerciale
