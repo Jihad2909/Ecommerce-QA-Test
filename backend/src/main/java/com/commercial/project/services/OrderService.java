@@ -1,6 +1,8 @@
 package com.commercial.project.services;
 
+import com.commercial.project.dto.DashboardStats;
 import com.commercial.project.exceptions.BusinessRuleException;
+import com.commercial.project.exceptions.ResourceNotFoundExceptions;
 import com.commercial.project.models.*;
 import com.commercial.project.models.enums.OrderStatus;
 import com.commercial.project.repositories.AuditLogRepository;
@@ -10,10 +12,13 @@ import com.commercial.project.repositories.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.aspectj.weaver.ast.Or;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -25,6 +30,31 @@ public class OrderService {
     private final ProductRepository productRepository;
     private final UserRepository  userRepository;
     private final AuditLogRepository auditLogRepository;
+
+    public DashboardStats getAllOrders() {
+
+        List<Order> orders =  orderRepository.findAll();
+        List<Product> products =  productRepository.findAll();
+
+        long pending = orders.stream()
+                .filter(o -> o.getStatus() == OrderStatus.SUBMITTED)
+                .count();
+        long lowStockProductCounts = products.stream()
+                .filter(p -> p.getStockQuantity() <= p.getMinStockAlert())
+                .count();
+        BigDecimal totalRevenue = orders.stream()
+                .filter(o -> o.getStatus() == OrderStatus.CONFIRMED || o.getStatus() == OrderStatus.DELIVERED)
+                .map(Order::getTotalAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return DashboardStats.builder()
+                .pendingOrders(pending)
+                .totalOrders(orders.size())
+                .totalRevenue(totalRevenue)
+                .lowStockProductsCounts(lowStockProductCounts)
+                .build();
+
+    }
 
     @Transactional
     public Order createOrder(String clientEmail, Map<Long, Integer> itemsOrder) {
@@ -89,7 +119,6 @@ public class OrderService {
         auditLogRepository.save(log);
     }
 
-    //SUBMITTED to CONFIRMED
     @Transactional
     public Order confirmOrder(Long orderId, String managerEmail) {
         Order order = orderRepository.findById(orderId)
@@ -144,5 +173,28 @@ public class OrderService {
         return order;
     }
 
+    @Transactional
+    public Order deliverOrder(Long orderId, String managerEmail) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundExceptions("Commande non trouvée ID: " + orderId));
 
+        if (order.getStatus() != OrderStatus.CONFIRMED) {
+            throw new BusinessRuleException("Seule une commande CONFIRMED peut passer à DELIVERED.");
+        }
+
+        order.setStatus(OrderStatus.DELIVERED);
+        Order updated = orderRepository.save(order);
+        logAudit(managerEmail, "DELIVER_ORDER", "Order", updated.getId(), "Commande marquée comme livrée.");
+        return updated;
+    }
+
+    public List<Order> getAllOrdersWithStatus (OrderStatus status) {
+        List<Order> orders = orderRepository.findAll(Sort.by(Sort.Direction.DESC, "orderDate"));
+        if (status != null) {
+            orders = orders.stream()
+                    .filter(o -> o.getStatus() == status)
+                    .toList();
+        }
+        return orders;
+    }
 }

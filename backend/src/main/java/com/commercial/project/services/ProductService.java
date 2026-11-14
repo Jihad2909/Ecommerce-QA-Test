@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import org.springframework.data.domain.Pageable;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +28,13 @@ public class ProductService {
         if (productRepository.existsBySku(product.getSku())) {
             throw new BusinessRuleException("Product with id " + product.getId() + " already exists");
         }
+        if (product.getStockQuantity() == null) {
+            product.setStockQuantity(0);
+        }
+        if (product.getMinStockAlert() == null) {
+            product.setMinStockAlert(2);
+        }
+
         Product newProduct = productRepository.save(product);;
 
         AuditLog auditLog = AuditLog.builder()
@@ -52,6 +60,45 @@ public class ProductService {
     public Product getById(Long id) {
         return productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundExceptions("Produit introuvable ID: " + id));
+    }
+
+    public List<Product> getAllProducts() {
+        return productRepository.findAll();
+    }
+
+    @Transactional 
+    public Product updateProduct(long id, Product updated, String userEmail){
+        Product existing = getById(id);
+        existing.setName(updated.getName());
+        existing.setDescription(updated.getDescription());
+        existing.setUnitPrice(updated.getUnitPrice());
+        existing.setStockQuantity(updated.getStockQuantity());
+        existing.setMinStockAlert(updated.getMinStockAlert());
+        Product saved = productRepository.save(existing);
+
+        auditLogRepository.save(AuditLog.builder()
+                .userEmail(userEmail)
+                .action("UPDATE_PRODUCT")
+                .targetEntity("Product")
+                .entityId(saved.getId())
+                .timestamp(LocalDateTime.now())
+                .details("Mise à jour produit SKU: " + saved.getSku())
+                .build());
+        return saved;
+    }
+
+    @Transactional
+    public void deleteProduct(Long id, String userEmail) {
+        Product existing = getById(id);
+        productRepository.delete(existing);
+        auditLogRepository.save(AuditLog.builder()
+                .userEmail(userEmail)
+                .action("DELETE_PRODUCT")
+                .targetEntity("Product")
+                .entityId(id)
+                .timestamp(LocalDateTime.now())
+                .details("Suppression produit SKU: " + existing.getSku())
+                .build());
     }
 
 

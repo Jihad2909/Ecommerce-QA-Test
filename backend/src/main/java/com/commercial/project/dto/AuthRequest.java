@@ -1,0 +1,9 @@
+package com.commercial.project.dto;
+
+import lombok.Data;
+
+@Data
+public class AuthRequest {
+    private String email;
+    private String password;
+}
