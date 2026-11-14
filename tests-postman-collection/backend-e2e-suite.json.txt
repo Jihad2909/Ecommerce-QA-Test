@@ -1,0 +1,245 @@
+{
+  "info": {
+    "name": "ISO 25010 - Suite Complète API Backend",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01. Auth - Login Client",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 200 OK', () => pm.response.to.have.status(200));",
+              "const data = pm.response.json();",
+              "pm.test('Rôle CLIENT vérifié', () => pm.expect(data.role).to.eql('ROLE_CLIENT'));",
+              "pm.collectionVariables.set('clientToken', data.token);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\"email\":\"client@tekup.tn\",\"password\":\"client123\"}" },
+        "url": "http://localhost:8080/api/auth/login"
+      }
+    },
+    {
+      "name": "02. Auth - Login Gestionnaire",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 200 OK', () => pm.response.to.have.status(200));",
+              "const data = pm.response.json();",
+              "pm.collectionVariables.set('managerToken', data.token);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\"email\":\"gestionnaire@tekup.tn\",\"password\":\"gest123\"}" },
+        "url": "http://localhost:8080/api/auth/login"
+      }
+    },
+    {
+      "name": "03. Auth - Login Admin",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 200 OK', () => pm.response.to.have.status(200));",
+              "const data = pm.response.json();",
+              "pm.collectionVariables.set('adminToken', data.token);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\"email\":\"admin@tekup.tn\",\"password\":\"admin123\"}" },
+        "url": "http://localhost:8080/api/auth/login"
+      }
+    },
+    {
+      "name": "04. Sécurité RBAC - Client bloqué sur création produit (403)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Accès refusé (403 Forbidden)', () => pm.response.to.have.status(403));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{clientToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"sku\":\"HACK-01\",\"name\":\"Test\",\"unitPrice\":100,\"stockQuantity\":5,\"minStockThreshold\":1}"
+        },
+        "url": "http://localhost:8080/api/products"
+      }
+    },
+    {
+      "name": "05. CRUD Produit - Création par Gestionnaire",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Produit créé (200 OK)', () => pm.response.to.have.status(200));",
+              "const prod = pm.response.json();",
+              "pm.collectionVariables.set('createdProductId', prod.id);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{managerToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"sku\":\"POSTMAN-SKU-{{$randomInt}}\",\"name\":\"Imprimante Laser HP\",\"description\":\"Test API\",\"unitPrice\":450.00,\"stockQuantity\":10,\"minStockThreshold\":2}"
+        },
+        "url": "http://localhost:8080/api/products"
+      }
+    },
+    {
+      "name": "06. Règle 1 - Rejet commande si stock insuffisant (400)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Erreur métier 400 Bad Request', () => pm.response.to.have.status(400));",
+              "pm.test('Message stock insuffisant', () => pm.expect(pm.response.json().message).to.include('Stock insuffisant'));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{clientToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"items\": {\"{{createdProductId}}\": 999}}"
+        },
+        "url": "http://localhost:8080/api/orders"
+      }
+    },
+    {
+      "name": "07. Workflow - Création commande valide par Client (SUBMITTED)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Commande créée (200 OK)', () => pm.response.to.have.status(200));",
+              "const order = pm.response.json();",
+              "pm.test('Statut initial SUBMITTED', () => pm.expect(order.status).to.eql('SUBMITTED'));",
+              "pm.test('Calcul serveur exact (2 x 450 = 900)', () => pm.expect(order.totalAmount).to.eql(900));",
+              "pm.collectionVariables.set('createdOrderId', order.id);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{clientToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"items\": {\"{{createdProductId}}\": 2}}"
+        },
+        "url": "http://localhost:8080/api/orders"
+      }
+    },
+    {
+      "name": "08. Workflow - Confirmation par Gestionnaire (CONFIRMED)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Confirmation réussie (200 OK)', () => pm.response.to.have.status(200));",
+              "pm.test('Statut passé à CONFIRMED', () => pm.expect(pm.response.json().status).to.eql('CONFIRMED'));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Authorization", "value": "Bearer {{managerToken}}" }],
+        "url": "http://localhost:8080/api/orders/{{createdOrderId}}/confirm"
+      }
+    },
+    {
+      "name": "09. Règle 4 - Rejet annulation commande déjà confirmée (400)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Annulation bloquée (400 Bad Request)', () => pm.response.to.have.status(400));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Authorization", "value": "Bearer {{clientToken}}" }],
+        "url": "http://localhost:8080/api/orders/{{createdOrderId}}/cancel"
+      }
+    },
+    {
+      "name": "10. Audit Log - Vérification traçabilité par Admin",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Accès Audit Log Admin (200 OK)', () => pm.response.to.have.status(200));",
+              "pm.test('Logs enregistrés non vides', () => pm.expect(pm.response.json().length).to.be.above(0));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": "http://localhost:8080/api/dashboard/audit-logs"
+      }
+    }
+  ]
+}
