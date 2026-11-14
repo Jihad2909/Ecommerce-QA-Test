@@ -1,4 +1,4 @@
-export default function Navbar({ onLogout }) {
+export default function Navbar({ onLogout, userRole }) {
   return (
     <header className="bg-slate-900 text-white shadow-md">
       <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
@@ -10,13 +10,21 @@ export default function Navbar({ onLogout }) {
             Gestion Commerciale
           </h1>
         </div>
-        <button
-          data-testid="logout-btn"
-          onClick={onLogout}
-          className="bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition cursor-pointer"
-        >
-          Déconnexion
-        </button>
+        <div className="flex items-center gap-4">
+          <span
+            data-testid="user-role-badge"
+            className="bg-slate-800 border border-slate-700 text-slate-200 text-xs font-semibold px-3 py-1.5 rounded-full"
+          >
+            Rôle : {userRole}
+          </span>
+          <button
+            data-testid="logout-btn"
+            onClick={onLogout}
+            className="bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition cursor-pointer"
+          >
+            Déconnexion
+          </button>
+        </div>
       </div>
     </header>
   );
