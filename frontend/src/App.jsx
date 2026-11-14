@@ -4,6 +4,7 @@ import Navbar from './components/Navbar';
 import LoginForm from './components/LoginForm';
 import ProductSection from './components/ProductSection';
 import OrderSection from './components/OrderSection';
+import AuditLogSection from './components/AuditLogSection';
 
 function extractRoleFromToken(token) {
   if (!token) return 'CLIENT';
@@ -20,9 +21,21 @@ export default function App() {
   const [token, setToken] = useState(() => localStorage.getItem('token') || '');
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
   const [error, setError] = useState('');
 
   const userRole = useMemo(() => extractRoleFromToken(token), [token]);
+
+  const fetchAuditLogs = useCallback(async () => {
+    if (userRole !== 'ADMIN') return;
+    try {
+      const res = await api.get('dashboard/audit-logs');
+      const data = res.data;
+      setAuditLogs(Array.isArray(data) ? data : (data.content || []));
+    } catch (err) {
+      console.error('Erreur GET /audit-logs:', err);
+    }
+  }, [userRole]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -40,7 +53,11 @@ export default function App() {
     } catch (err) {
       console.error('Erreur GET /orders/orders:', err);
     }
-  }, []);
+
+    if (userRole === 'ADMIN') {
+      fetchAuditLogs();
+    }
+  }, [userRole, fetchAuditLogs]);
 
   useEffect(() => {
     if (token) {
@@ -58,9 +75,9 @@ export default function App() {
     setToken('');
     setProducts([]);
     setOrders([]);
+    setAuditLogs([]);
   };
 
-  // Calcul des KPIs agrégés pour le Tableau de Bord (Exigence Section 4)
   const kpis = useMemo(() => {
     const totalRevenue = orders
       .filter((o) => o.status !== 'CANCELLED')
@@ -88,7 +105,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Cartes KPIs Tableau de Bord */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" data-testid="dashboard-kpis">
           <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
             <p className="text-xs font-medium text-slate-500 uppercase">Chiffre d'affaires</p>
@@ -123,6 +139,11 @@ export default function App() {
           onOrderUpdated={fetchData}
           onError={setError}
         />
+
+        {/* Section Traçabilité réservée exclusivement à l'ADMIN */}
+        {userRole === 'ADMIN' && (
+          <AuditLogSection auditLogs={auditLogs} onRefresh={fetchAuditLogs} />
+        )}
       </main>
     </div>
   );
